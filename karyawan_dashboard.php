@@ -1,41 +1,54 @@
 <?php
-include_once 'auth.php';
-checkRole(['karyawan']); // Hanya karyawan yang bisa akses
+session_start();
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'karyawan') {
+    header('Location: index.php');
+    exit();
+}
 
-include_once 'templates/header.php';
+include 'config/database.php';
+include 'templates/header.php';
+
+$tanggal_sekarang = date('Y-m-d');
+$karyawan_id = $_SESSION['user_id'];
+
+$stmt = $pdo->prepare("SELECT * FROM absensi WHERE karyawan_id = ? AND tanggal = ?");
+$stmt->execute([$karyawan_id, $tanggal_sekarang]);
+$absensi_hari_ini = $stmt->fetch();
+
+$disabled_masuk = false;
+$disabled_keluar = true;
+$sudah_absen_keluar = false;
+
+if ($absensi_hari_ini) {
+    $disabled_masuk = true;
+    if ($absensi_hari_ini['jam_keluar']) {
+        $disabled_keluar = true;
+        $sudah_absen_keluar = true;
+    } else {
+        $disabled_keluar = false;
+    }
+}
 ?>
 
-<h2>Halo, <?php echo htmlspecialchars($_SESSION['nama_karyawan']); ?>!</h2>
-<p>Selamat datang di dashboard absensi Anda.</p>
-<p>Tanggal saat ini: **<?php echo date("d M Y"); ?>**</p>
-<p>Waktu saat ini: **<?php echo date("H:i:s"); ?>**</p>
-
-<div style="margin-top: 30px; text-align: center;">
-    <?php
-    // Cek apakah sudah absen masuk hari ini
-    $today = date("Y-m-d");
-    $stmt = $conn->prepare("SELECT id_absensi, jam_masuk, jam_keluar FROM absensi WHERE id_karyawan = ? AND tanggal_absensi = ?");
-    $stmt->bind_param("is", $_SESSION['user_id'], $today);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $absensi_hari_ini = $result->fetch_assoc();
-    $stmt->close();
-
-    if ($absensi_hari_ini) {
-        echo "<p class='message success'>Anda sudah Absen Masuk hari ini pada pukul " . date("H:i", strtotime($absensi_hari_ini['jam_masuk'])) . ".</p>";
-        if ($absensi_hari_ini['jam_keluar']) {
-            echo "<p class='message success'>Anda sudah Absen Pulang hari ini pada pukul " . date("H:i", strtotime($absensi_hari_ini['jam_keluar'])) . ".</p>";
-            echo "<button disabled style='background-color: #6c757d;'>Sudah Absen Masuk & Pulang</button>";
-        } else {
-            echo "<a href='absensi_proses.php?action=pulang' class='button' style='display: inline-block; text-decoration: none; background-color: #dc3545;'>Absen Pulang</a>";
-        }
-    } else {
-        echo "<a href='absensi_proses.php?action=masuk' class='button' style='display: inline-block; text-decoration: none;'>Absen Masuk</a>";
-    }
-    ?>
+<div class="dashboard-karyawan">
+    <h2>Selamat Datang, <?= $_SESSION['nama'] ?></h2>
+    <p>Email: <?= $_SESSION['email'] ?></p>
+    <div class="absensi-form">
+        <form action="absensi_proses.php" method="post">
+            <input type="hidden" name="action" value="check_in">
+            <button type="submit" <?= $disabled_masuk ? 'disabled' : '' ?>>Check In</button>
+        </form>
+        <form action="absensi_proses.php" method="post">
+            <input type="hidden" name="action" value="check_out">
+            <button type="submit" <?= $disabled_keluar ? 'disabled' : '' ?>>Check Out</button>
+        </form>
+    </div>
+    <?php if ($disabled_masuk): ?>
+        <p>Anda sudah melakukan check-in pada: <?= $absensi_hari_ini['jam_masuk'] ?></p>
+    <?php endif; ?>
+    <?php if ($sudah_absen_keluar): ?>
+        <p>Anda sudah melakukan check-out pada: <?= $absensi_hari_ini['jam_keluar'] ?></p>
+    <?php endif; ?>
 </div>
 
-<?php
-include_once 'templates/footer.php';
-$conn->close();
-?>
+<?php include 'templates/footer.php'; ?>

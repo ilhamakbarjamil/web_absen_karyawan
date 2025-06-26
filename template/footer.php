@@ -1,7 +1,6 @@
-</main>
-        <footer>
-            <p>&copy; <?php echo date("Y"); ?> Sistem Absensi Karyawan. All rights reserved.</p>
-        </footer>
-    </div>
+    </main>
+    <footer>
+        <p>&copy; <?= date('Y') ?> Sistem Absensi Karyawan - Tugas Kuliah</p>
+    </footer>
 </body>
 </html>
